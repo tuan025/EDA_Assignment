@@ -1,0 +1,203 @@
+---
+title: "EDA"
+author: "Tuan Pham"
+date: "2023-04-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+1. Load the Dataset
+
+```{r}
+# Load packages
+library(tidyverse)
+library(ggplot2)
+library("scales")
+
+```
+```{r}
+# Load a dataset
+data <- read_csv('C:/Users/arsen/OneDrive/Desktop/ames.csv')
+head(data)
+```
+```{r}
+#View a structure of the data
+str(data)
+```
+
+
+2. Explore Data Distributions
+
+Sale Price
+```{r}
+#Set up a plot
+ggplot(data, aes(x=SalePrice)) +
+  geom_histogram()+
+  scale_x_continuous(labels = comma)+
+  geom_vline(xintercept=mean(data$SalePrice), color="black") +
+  labs(title="Distribution of Sale Prices", x="Sale Price", y="Number of Houses")
+```
+```{r}
+#Descriptive statistics of SalePrice
+summary(data$SalePrice)
+```
+Looks like a log normal distribution. Most houses in this sample are
+clustered around the median value of $163,000, but the higher-end
+homes are pulling the mean up to over $180,000
+
+Total Rooms Above Grade
+```{r}
+#Set up a plot
+ggplot(data,aes(x=TotRmsAbvGrd)) +
+  geom_histogram()+
+   geom_vline(xintercept=mean(data$TotRmsAbvGrd), color="black") +
+  labs(title="Distribution of Total Rooms Above Grade", x="Total Rooms (Does Not Include Bathrooms)", y="Number of Houses")
+```
+```{r}
+#Descriptive Statistics of TotRmsAbvGrd
+summary(data$TotRmsAbvGrd)
+```
+The number of rooms in houses is approximately normally distributed, 
+with a mean and median around 6 rooms. There are some houses with
+twice as many rooms as the average, but overall the distribution is
+less skewed than the sale price distribution
+
+Overall Condition
+```{r}
+#Set up a plot
+ggplot(data,aes(x=OverallCond)) +
+  geom_histogram()+
+   geom_vline(xintercept=mean(data$OverallCond), color="black") +
+  labs(title="Distribution of Overall Condition of Houses on a 1-10 Scale", x="Condition of House", y="Number of Houses")
+```
+```{r}
+#Descriptive Statistics of OverallCond
+summary(data$OverallCond)
+```
+Most homes have a condition of 5. It seems like we should
+treat this as a categorical rather than numeric variable,
+since the difference between conditions is so abrupt
+
+3. Explore Differences between Subsets
+
+```{r}
+#Create subsets based on specific conditions
+below_average_condition <- data %>% filter(OverallCond < 5)
+average_condition <- data %>% filter(OverallCond == 5)
+above_average_condition <- data %>% filter(OverallCond > 5)
+```
+
+```{r}
+#Set up a plot
+ggplot() +
+  geom_histogram(data=above_average_condition, aes(x=SalePrice, fill="above average condition"), alpha=0.5) +
+  geom_histogram(data=average_condition, aes(x=SalePrice, fill="average condition"), alpha=0.3) +
+  geom_histogram(data=below_average_condition, aes(x=SalePrice, fill="below average condition"), alpha=0.5) +
+  scale_x_continuous(labels = comma) +
+  labs(title="Distributions of Sale Price Grouped by Condition", x="Sale Price", y="Number of Houses", fill="") +
+  guides(fill = guide_legend(reverse=TRUE)) +
+  scale_fill_manual(values=c("cyan", "gray", "yellow"), labels=c("above average condition", "average condition", "below average condition"))
+
+```
+First, we note again that the majority of the houses have average
+condition, then about 1/3 have above average condition, then less
+than 10% have below average condition.
+
+As we might expect, the average condition therefore contains houses
+across a broader spectrum of the sale price range than either the
+below-average or above-average houses.
+
+Another unsurprising finding is that below-average condition houses
+have a price distribution that is much lower than average or
+above-average condition houses.
+
+But what might be surprising is that above-average condition houses
+do not seem to have higher average sale prices than average condition
+houses. In fact, above-average condition houses seem more clustered
+around a particular price range, especially the $100,000 to $200,000
+range, whereas average condition houses are more frequent above
+$200,000. We might want to investigate further to understand what
+kinds of houses are rated as above-average condition, since this goes
+against a standard assumption that better condition would mean higher
+cost.
+
+4. Explore Correlations
+
+The most positively correlated with SalePrice
+```{r}
+#Extract numeric columns from the dataset
+numeric_cols <- sapply(data, is.numeric)
+numeric_cols
+data_numeric <- data[, numeric_cols]
+data_numeric
+
+# Get a list of correlations with SalePrice, sorted from smallest to largest
+correlation_series <- sort(cor(data_numeric)[,'SalePrice'])
+
+# Select second to last correlation, since the highest (last)
+# correlation will be SalePrice correlating 100% with itself
+max_corr_value <- correlation_series[length(correlation_series) - 1]
+max_corr_column <- names(correlation_series)[length(correlation_series) - 1]
+
+# Print the most positively correlated column and its maximum correlation value
+cat("Most Positively Correlated Column: ", max_corr_column, "\n")
+cat("Maximum Correlation Value: ", max_corr_value, "\n")
+```
+
+The most negatively correlated with SalePrice
+```{r}
+# Print the most negatively correlated column and its minimum correlation value
+min_corr_value <- correlation_series[1]
+min_corr_column <- names(correlation_series)[1]
+
+cat("Most Negatively Correlated Column: ", min_corr_column, "\n")
+cat("Minimum Correlation Value: ", min_corr_value, "\n")
+```
+
+Once we have enough information, we creates box-plots of the relevant columns
+```{r}
+# Plot distribution of column with highest correlation
+ggplot(data, aes(x = reorder(as.character(OverallQual),SalePrice), y = SalePrice)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Overall Quality vs. Sale Price",
+       x = "Overall Quality",
+       y = "Sale Price")
+
+# Plot distribution of column with most negative correlation
+ggplot(data, aes(x = reorder(as.character(KitchenAbvGr),SalePrice), y = SalePrice)) +
+  geom_boxplot() +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Number of Kitchens vs. Sale Price",
+       x = "Number of Kitchens Above Ground",
+       y = "Sale Price")
+```
+
+5. Engineer and Explore a New Feature
+
+```{r}
+table(data$YrSold)
+```
+```{r}
+#Create a new column
+df <- data %>%
+  mutate(Age = YrSold - YearBuilt)
+
+#Set up a plot
+ggplot(df, aes(x = Age, y = SalePrice)) +
+  geom_point(alpha = 0.3, color = "green") +
+  labs(title = "Home Age vs. Sale Price", 
+       x = "Age of Home at Time of Sale", 
+       y = "Sale Price") +
+  theme_bw()
+```
+In general, newer houses appear to be more valuable, with value increasing
+as homes age. Interestingly the variance seems to increase once the home
+age goes over 100 years, with several above-average sale prices and fewer
+home sales in general.
+
+We are also seeing potential housing booms and busts over the past decades,
+indicated by e.g. relatively few 20-year-old houses compared to 25-year-old houses
+being sold. We might find something interesting if we investigae this further.
